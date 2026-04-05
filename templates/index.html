@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+    <title>EduNexora AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+
+    <style>
+        * {
+            font-family: 'Poppins', sans-serif !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="noise" aria-hidden="true"></div>
+
+<aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+        <div class="sb-mark">EN</div>
+        <div class="sb-brand">
+            <span class="sb-name">EduNexora</span>
+            <span class="sb-ai">AI</span>
+        </div>
+    </div>
+
+    <nav class="sb-nav">
+        <button class="nb active" data-tab="students" onclick="switchTab('students',this)">
+            <span class="ni">◈</span><span class="nl">Student Analysis</span>
+        </button>
+        <button class="nb" data-tab="syllabus" onclick="switchTab('syllabus',this)">
+            <span class="ni">◎</span><span class="nl">Syllabus</span>
+        </button>
+        <button class="nb" data-tab="intervention" onclick="switchTab('intervention',this)">
+            <span class="ni">◐</span><span class="nl">Intervention</span>
+        </button>
+        <button class="nb" data-tab="notifications" onclick="switchTab('notifications',this)">
+            <span class="ni">🔔</span><span class="nl">Notifications</span>
+            <span class="nb-cnt" id="notifBadge">{{ data.notifications|length }}</span>
+        </button>
+        <button class="nb" data-tab="upload" onclick="switchTab('upload',this)">
+            <span class="ni">⊕</span><span class="nl">Upload Data</span>
+        </button>
+    </nav>
+
+    <div class="sb-foot">
+        <div class="mode-tag" id="modeTag">
+            <span class="mdot" id="mdot"></span>
+            <span id="modeLabel">Demo Mode</span>
+        </div>
+    </div>
+</aside>
+
+<main class="main">
+
+    <div class="topbar">
+        <div class="tb-l">
+            <h1 class="pg-title" id="pgTitle">Student Performance Analysis</h1>
+            <p class="pg-sub"  id="pgSub">Classification &amp; Ranking Dashboard</p>
+        </div>
+        <div class="tb-r">
+            <div class="src-chip" id="srcChip">
+                <span class="sdot chip-demo" id="srcDot"></span>
+                <span id="srcTxt">Demo Data</span>
+            </div>
+            <button class="btn-ico" onclick="window.location.reload()" title="Reload">↺</button>
+        </div>
+    </div>
+
+    <section class="tab active" id="tab-students">
+
+        <div class="stats-row">
+            <div class="scard" style="--ca:#00e5a0">
+                <div class="sc-ico">👥</div>
+                <div class="sc-num" id="stTotal">{{ data.total }}</div>
+                <div class="sc-lbl">Total Students</div>
+                <div class="sc-bar" style="width:100%;background:var(--teal)"></div>
+            </div>
+            <div class="scard" style="--ca:#00e5a0">
+                <div class="sc-ico">✅</div>
+                <div class="sc-num" id="stPass">{{ data.pass }}</div>
+                <div class="sc-lbl">Passed</div>
+                <div class="sc-bar" id="barPass" style="width:{{ (data.pass/data.total*100)|round|int if data.total else 0 }}%;background:var(--teal)"></div>
+            </div>
+            <div class="scard" style="--ca:#f5a623">
+                <div class="sc-ico">⚠️</div>
+                <div class="sc-num" id="stFail">{{ data.fail }}</div>
+                <div class="sc-lbl">Failed</div>
+                <div class="sc-bar" id="barFail" style="width:{{ (data.fail/data.total*100)|round|int if data.total else 0 }}%;background:var(--amber)"></div>
+            </div>
+            <div class="scard" style="--ca:#ff4d6d">
+                <div class="sc-ico">🚨</div>
+                <div class="sc-num" id="stBacklog">{{ data.backlog }}</div>
+                <div class="sc-lbl">Backlog</div>
+                <div class="sc-bar" id="barBacklog" style="width:{{ (data.backlog/data.total*100)|round|int if data.total else 0 }}%;background:var(--coral)"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <span class="card-title">Top Students — Marks Distribution</span>
+                <span class="card-tag">Animated Bar</span>
+            </div>
+            <div class="chart-wrap" style="position: relative; height: 300px; width: 100%;">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <div class="card">
+                <div class="card-head">
+                    <span class="card-title">🏆 Ranking</span>
+                    <span class="card-tag" id="rankCnt">Top 5</span>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>#</th><th>Name</th><th>Marks</th><th>Status</th></tr></thead>
+                        <tbody id="rankBody">
+                            {% for s in data.ranking[:5] %}
+                            <tr class="tr-in" style="animation-delay:{{ loop.index0*0.04 }}s">
+                                <td><span class="rn {% if loop.index==1 %}gold{% elif loop.index==2 %}sil{% elif loop.index==3 %}brnz{% endif %}">{{ loop.index }}</span></td>
+                                <td class="nm">{{ s.id }}</td>
+                                <td><span class="mpill">{{ s.marks }}</span></td>
+                                {% set risk = 'Pass' if s.marks >= 40 else ('Backlog' if s.marks < 35 else 'Fail') %}
+                                {% set riskCls = 'pass' if s.marks >= 40 else ('backlog' if s.marks < 35 else 'fail') %}
+                                <td><span class="bdg bdg-{{ riskCls }}">{{ risk }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><span class="card-title">🤖 AI Insights</span></div>
+                <div class="insights" id="stInsights">
+                    {% set t = data.total or 1 %}
+                    <div class="ins success" style="animation-delay:.04s">
+                        <span class="ii">✦</span>
+                        <span>{{ data.pass }} students ({{ (data.pass/t*100)|round(1) }}%) cleared the 40-mark threshold</span>
+                    </div>
+                    <div class="ins warning" style="animation-delay:.08s">
+                        <span class="ii">▲</span>
+                        <span>{{ data.fail }} students failed — marks between 35 and 39</span>
+                    </div>
+                    <div class="ins critical" style="animation-delay:.12s">
+                        <span class="ii">⬤</span>
+                        <span>{{ data.backlog }} students in backlog — marks below 35</span>
+                    </div>
+                    {% if data.ranking %}
+                    <div class="ins info" style="animation-delay:.16s">
+                        <span class="ii">★</span>
+                        <span>Top: {{ data.ranking[0].id }} — {{ data.ranking[0].marks }} marks</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab" id="tab-syllabus">
+
+        <div class="prog-hero">
+            <div>
+                <div class="ph-label">Overall Syllabus Completion</div>
+                <div class="ph-pct" id="syllPct">{{ data.progress }}%</div>
+            </div>
+            <div class="ph-right">
+                <div class="prog-track"><div class="prog-fill" id="progFill" style="width:{{ data.progress }}%"></div></div>
+                <div class="prog-meta">
+                    <span id="phDone">In Progress</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <div class="card">
+                <div class="card-head">
+                    <span class="card-title">Completion Breakdown</span>
+                    <span class="card-tag">Pie Chart</span>
+                </div>
+                <div class="chart-wrap sm" style="position: relative; height: 250px; width: 100%;">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head"><span class="card-title">📚 Unit Progress</span></div>
+                <div class="units" id="unitsList">
+                    {% if data.syllabus %}
+                        {% for unit_name, unit_data in data.syllabus.items() %}
+                        <div class="ucard">
+                            <div class="uc-top">
+                                <span class="uc-name">{{ unit_name }}</span>
+                                <span class="uc-pct full">Tracked</span>
+                            </div>
+                            <div class="ubar"><div class="ufill" style="width:100%;background:var(--teal)"></div></div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p style="padding: 15px; color: var(--text-muted); font-size: 14px;">No specific unit data found. Upload syllabus TXT to view.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <span class="card-title">🔔 Syllabus Notifications</span>
+                <span class="card-tag" id="syllNotifCnt">{{ data.notifications|length }}</span>
+            </div>
+            <div class="notif-grid" id="syllNotifGrid">
+                {% for n in data.notifications %}
+                {% set lvl = 'info' %}
+                <div class="ncard {{ lvl }}" style="animation-delay:{{ loop.index0*0.07 }}s">
+                    <div class="ndot"></div>
+                    <div class="nbody">
+                        <span class="nlvl">{{ lvl|upper }}</span>
+                        <span class="nmsg">{{ n }}</span>
+                    </div>
+                    <span class="ntime">now</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="tab" id="tab-intervention">
+
+        <div class="stats-row">
+            <div class="scard" style="--ca:#ff4d6d">
+                <div class="sc-ico">🚨</div>
+                <div class="sc-num" id="intH" style="color:var(--coral)">{{ data.high }}</div>
+                <div class="sc-lbl">High Risk</div>
+                <div class="sc-bar" style="width:{{ (data.high/data.total*100)|round|int if data.total else 0 }}%;background:var(--coral)"></div>
+            </div>
+            <div class="scard" style="--ca:#f5a623">
+                <div class="sc-ico">⚡</div>
+                <div class="sc-num" id="intM" style="color:var(--amber)">{{ data.medium }}</div>
+                <div class="sc-lbl">Medium Risk</div>
+                <div class="sc-bar" style="width:{{ (data.medium/data.total*100)|round|int if data.total else 0 }}%;background:var(--amber)"></div>
+            </div>
+            <div class="scard" style="--ca:#00e5a0">
+                <div class="sc-ico">🟢</div>
+                <div class="sc-num" id="intL" style="color:var(--teal)">{{ data.low }}</div>
+                <div class="sc-lbl">Low Risk</div>
+                <div class="sc-bar" style="width:{{ (data.low/data.total*100)|round|int if data.total else 0 }}%;background:var(--teal)"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <span class="card-title">Risk Distribution Across Mark Ranges</span>
+                <span class="card-tag">Animated Line Chart</span>
+            </div>
+            <div class="chart-wrap" style="position: relative; height: 300px; width: 100%;">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <div class="card">
+                <div class="card-head"><span class="card-title">🤖 AI Insights</span></div>
+                <div class="insights" id="intInsights">
+                    <div class="ins critical" style="animation-delay:.05s">
+                        <span class="ii">⬤</span>
+                        <span>{{ data.high }} students need extra classes + counseling</span>
+                    </div>
+                    <div class="ins warning" style="animation-delay:.12s">
+                        <span class="ii">▲</span>
+                        <span>{{ data.medium }} students need weekly mentoring sessions</span>
+                    </div>
+                    <div class="ins success" style="animation-delay:.18s">
+                        <span class="ii">✦</span>
+                        <span>{{ data.low }} students are on a safe track</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <span class="card-title">📋 At-Risk Sample</span>
+                    <span class="card-tag">Watchlist</span>
+                </div>
+                <div class="tbl-wrap">
+                    <table>
+                        <thead><tr><th>Name</th><th>Marks</th><th>Risk</th></tr></thead>
+                        <tbody id="riskBody">
+                            {% for s in data.ranking %}
+                            {% if s.marks < 40 %}
+                            <tr class="tr-in" style="animation-delay:{{ loop.index0*0.04 }}s">
+                                <td class="nm">{{ s.id }}</td>
+                                <td><span class="mpill">{{ s.marks }}</span></td>
+                                {% set riskLvl = 'High' if s.marks < 35 else 'Medium' %}
+                                {% set riskCls = 'high' if s.marks < 35 else 'medium' %}
+                                <td><span class="bdg bdg-{{ riskCls }}">{{ riskLvl }}</span></td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tab" id="tab-notifications">
+        <div class="card">
+            <div class="card-head">
+                <span class="card-title">🔔 All AI Notifications</span>
+                <span class="card-tag" id="allNotifCnt">{{ data.notifications|length }} alerts</span>
+            </div>
+            <div class="notif-grid" id="allNotifGrid">
+                {% for n in data.notifications %}
+                <div class="ncard info" style="animation-delay:{{ loop.index0*0.06 }}s">
+                    <div class="ndot"></div>
+                    <div class="nbody">
+                        <span class="nlvl">SYSTEM · INFO</span>
+                        <span class="nmsg">{{ n }}</span>
+                    </div>
+                    <span class="ntime">now</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="tab" id="tab-upload">
+        <div class="up-hero">
+            <h2 class="up-title">Upload Real Data</h2>
+            <p class="up-sub">Replace demo data with real institution records to unlock enhanced AI insights.</p>
+        </div>
+
+        <form id="upForm" onsubmit="doUpload(event)">
+            <div class="up-grid">
+                <div class="up-card">
+                    <div class="uc-ico">📁</div>
+                    <h3 class="uc-h">Student Data</h3>
+                    <p class="uc-p">Upload student records in CSV or PDF format.</p>
+                    <label class="flbl">
+                        <input type="file" id="studentFileIn" name="student_file" accept=".csv, .pdf" onchange="previewF(this,'studentFileNm')"/>
+                        <div class="fbtn">Choose File</div>
+                    </label>
+                    <div class="fnm" id="studentFileNm">No file selected</div>
+                </div>
+
+                <div class="up-card">
+                    <div class="uc-ico">📋</div>
+                    <h3 class="uc-h">Syllabus Document</h3>
+                    <p class="uc-p">Plain text (.txt) file with units and topics.</p>
+                    <label class="flbl">
+                        <input type="file" id="txtIn" name="syllabus_file" accept=".txt" onchange="previewF(this,'txtNm')"/>
+                        <div class="fbtn">Choose TXT File</div>
+                    </label>
+                    <div class="fnm" id="txtNm">No file selected</div>
+                </div>
+            </div>
+
+            <div class="up-acts">
+                <button type="submit" class="btn-up" id="btnUp">
+                    <span>⟳</span><span id="btnUpTxt">Upload &amp; Analyze</span>
+                </button>
+                <button type="button" class="btn-back" onclick="window.location.reload()">← Refresh View</button>
+            </div>
+            <div class="up-errs" id="upErrs" style="display:none"></div>
+        </form>
+    </section>
+</main>
+
+<div class="loader-ov" id="loaderOv" style="display:none">
+    <div class="lbox">
+        <div class="lring"></div>
+        <div class="ltxt" id="lTxt">Processing…</div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    var INIT = {{ data | tojson | safe }};
+</script>
+
+<script>
+(function(){
+'use strict';
+
+var BARC = null, PIEC = null, LINC = null;
+
+Chart.defaults.color       = '#727299';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+Chart.defaults.font.family = "'Poppins', sans-serif";
+Chart.defaults.font.size   = 11;
+Chart.defaults.plugins.legend.labels.boxWidth      = 10;
+Chart.defaults.plugins.legend.labels.padding       = 16;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+
+var TABS = {
+  students:     {t:'Student Performance Analysis',    s:'Classification & Ranking'},
+  syllabus:     {t:'Syllabus Intelligence',            s:'Progress Tracking'},
+  intervention: {t:'Early Intervention System',        s:'Risk Assessment'},
+  notifications:{t:'AI Notifications',                 s:'Live alerts'},
+  upload:       {t:'Upload Real Data',                 s:'Unlock enhanced AI insights'}
+};
+
+window.switchTab = function(name, el) {
+  document.querySelectorAll('.nb').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(s){s.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  var m = TABS[name]||{};
+  document.getElementById('pgTitle').textContent = m.t||name;
+  document.getElementById('pgSub').textContent   = m.s||'';
+};
+
+window.showToast = function(msg,type){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+(type||'');
+  clearTimeout(t._id);
+  t._id=setTimeout(function(){t.className='toast';},3200);
+};
+
+window.showLoader=function(m){
+  document.getElementById('lTxt').textContent=m||'Processing…';
+  document.getElementById('loaderOv').style.display='flex';
+};
+window.hideLoader=function(){document.getElementById('loaderOv').style.display='none';};
+
+window.previewF=function(inp,id){
+  var el=document.getElementById(id);
+  if(inp.files&&inp.files[0])
+    el.textContent='\u2713 '+inp.files[0].name+' ('+(inp.files[0].size/1024).toFixed(1)+' KB)';
+};
+
+function animN(id,to){
+  var el=document.getElementById(id); if(!el)return;
+  var from=parseInt(el.textContent)||0, dur=750, t0=performance.now();
+  (function step(ts){
+    var p=Math.min((ts-t0)/dur,1), e=1-Math.pow(1-p,3);
+    el.textContent=Math.round(from+(to-from)*e);
+    if(p<1)requestAnimationFrame(step); else el.textContent=to;
+  })(t0);
+}
+
+function setMode(src){
+  var dot=document.getElementById('mdot');
+  var lbl=document.getElementById('modeLabel');
+  var sdot=document.getElementById('srcDot');
+  var stxt=document.getElementById('srcTxt');
+  var isReal = src==='real';
+  dot.className  = isReal?'mdot real':'mdot';
+  if(lbl) lbl.textContent= isReal?'Real Data':'Demo Mode';
+  sdot.className = isReal?'sdot chip-real':'sdot chip-demo';
+  stxt.textContent= isReal?'Real Data':'Demo Data';
+}
+
+function buildBar(labels, marks, colors) {
+  var ctx = document.getElementById('barChart');
+  if (!ctx) return;
+  if (BARC) BARC.destroy();
+  BARC = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Students',
+        data: marks,
+        backgroundColor: colors,
+        borderRadius: 5,
+        borderSkipped: false,
+        barPercentage: 0.5,
+        categoryPercentage: 0.5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 2000,
+        easing: 'easeInOutQuart',
+        delay: (context) => context.dataIndex * 300
+      },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+function buildPie(done, pending, total){
+  var ctx=document.getElementById('pieChart'); if(!ctx)return;
+  if(PIEC)PIEC.destroy();
+  PIEC=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:['Completed %','Remaining %'],
+      datasets:[{
+        data:[done, pending],
+        backgroundColor:['rgba(0,229,160,.85)','rgba(255,77,109,.7)'],
+        borderColor:'#0b0b17',borderWidth:3,hoverOffset:9
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'68%',
+      animation:{duration:900,easing:'easeOutQuart'},
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#727299',padding:18}},
+        tooltip:{
+          backgroundColor:'#0f0f1c',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,padding:10,
+        }
+      }
+    }
+  });
+}
+
+function buildLine(buckets) {
+  var ctx = document.getElementById('lineChart');
+  if (!ctx) return;
+  if (LINC) LINC.destroy();
+  LINC = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: buckets.map(b => b.range),
+      datasets: [
+        {
+          label: 'High Risk',
+          data: buckets.map(b => b.high),
+          borderColor: '#ff4d6d',
+          backgroundColor: 'rgba(255,77,109,0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4
+        },
+        {
+          label: 'Medium Risk',
+          data: buckets.map(b => b.medium),
+          borderColor: '#f5a623',
+          backgroundColor: 'rgba(245,166,35,0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4
+        },
+        {
+          label: 'Low Risk',
+          data: buckets.map(b => b.low),
+          borderColor: '#00e5a0',
+          backgroundColor: 'rgba(0,229,160,0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animations: {
+        y: {
+          easing: 'easeInOutElastic',
+          duration: 2500,
+          from: (ctx) => ctx.index % 2 === 0 ? -15 : 15,
+          loop: true
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function render(d){
+  setMode(d.source || 'demo');
+  animN('stTotal',   d.total || 0);
+  animN('stPass',    d.pass || 0);
+  animN('stFail',    d.fail || 0);
+  animN('stBacklog', d.backlog || 0);
+
+  var tot = d.total || 1;
+  var bp=document.getElementById('barPass');    if(bp) bp.style.width=((d.pass/tot)*100).toFixed(1)+'%';
+  var bf=document.getElementById('barFail');    if(bf) bf.style.width=((d.fail/tot)*100).toFixed(1)+'%';
+  var bb=document.getElementById('barBacklog'); if(bb) bb.style.width=((d.backlog/tot)*100).toFixed(1)+'%';
+
+  buildBar(['Pass', 'Fail', 'Backlog'], [d.pass || 0, d.fail || 0, d.backlog || 0], ['rgba(0,229,160,.85)','rgba(245,166,35,.85)','rgba(255,77,109,.85)']);
+
+  var tbody=document.getElementById('rankBody');
+  if(tbody && Array.isArray(d.ranking)){
+    // 🔥 FIX: JS array mein .slice(0, 5) lagaya taaki DOM pe bhi 5 hi render hon
+    tbody.innerHTML=d.ranking.slice(0, 5).map(function(s,i){
+      var rc=i===0?'gold':i===1?'sil':i===2?'brnz':'';
+      var cls = s.marks >= 40 ? 'Pass' : (s.marks < 35 ? 'Backlog' : 'Fail');
+      var cssCls = s.marks >= 40 ? 'pass' : (s.marks < 35 ? 'backlog' : 'fail');
+      return '<tr class="tr-in" style="animation-delay:'+(i*0.04)+'s">'+
+        '<td><span class="rn '+rc+'">'+(i+1)+'</span></td>'+
+        '<td class="nm">'+s.id+'</td>'+
+        '<td><span class="mpill">'+s.marks+'</span></td>'+
+        '<td><span class="bdg bdg-'+cssCls+'">'+cls+'</span></td></tr>';
+    }).join('');
+    var rc=document.getElementById('rankCnt'); if(rc) rc.textContent='Top 5';
+  }
+
+  var sp=document.getElementById('syllPct'); if(sp) sp.textContent=(d.progress || 0)+'%';
+  var pf=document.getElementById('progFill'); if(pf) pf.style.width=(d.progress || 0)+'%';
+  buildPie(d.progress || 0, 100 - (d.progress || 0), 100);
+
+  animN('intH', d.high || 0);
+  animN('intM', d.medium || 0);
+  animN('intL', d.low || 0);
+
+  var buckets = [
+      {range: '< 35 (High)', high: d.backlog || 0, medium: 0, low: 0},
+      {range: '35-39 (Medium)', high: 0, medium: d.fail || 0, low: 0},
+      {range: '40+ (Low)', high: 0, medium: 0, low: d.pass || 0}
+  ];
+  buildLine(buckets);
+
+  var rb=document.getElementById('riskBody');
+  if(rb && Array.isArray(d.ranking)){
+    rb.innerHTML=d.ranking.filter(function(s){return s.marks < 40;})
+      .map(function(s,i){
+        var riskLvl = s.marks < 35 ? 'High' : 'Medium';
+        var riskCls = s.marks < 35 ? 'high' : 'medium';
+        return '<tr class="tr-in" style="animation-delay:'+(i*0.04)+'s">'+
+          '<td class="nm">'+s.id+'</td>'+
+          '<td><span class="mpill">'+s.marks+'</span></td>'+
+          '<td><span class="bdg bdg-'+riskCls+'">'+riskLvl+'</span></td></tr>';
+      }).join('');
+  }
+
+  var ang=document.getElementById('allNotifGrid');
+  var sng=document.getElementById('syllNotifGrid');
+  var nbadge = document.getElementById('notifBadge');
+  
+  if (d.notifications) {
+      var notifHtml = d.notifications.map(function(n,i){
+        return '<div class="ncard info" style="animation-delay:'+(i*0.06)+'s">'+
+          '<div class="ndot"></div>'+
+          '<div class="nbody"><span class="nlvl">SYSTEM · INFO</span>'+
+          '<span class="nmsg">'+n+'</span></div>'+
+          '<span class="ntime">now</span></div>';
+      }).join('');
+      if(ang) ang.innerHTML = notifHtml;
+      if(sng) sng.innerHTML = notifHtml;
+      if(nbadge) nbadge.textContent = d.notifications.length;
+      var anc=document.getElementById('allNotifCnt');
+      if(anc) anc.textContent = d.notifications.length + ' alerts';
+      var snc=document.getElementById('syllNotifCnt');
+      if(snc) snc.textContent = d.notifications.length;
+  }
+}
+
+window.doUpload=function(e){
+  e.preventDefault();
+  var studentFile=document.getElementById('studentFileIn').files[0];
+  var txt=document.getElementById('txtIn').files[0];
+  if(!studentFile&&!txt){showToast('Please select at least one file','err');return;}
+  var fd=new FormData();
+  if(studentFile) {
+      if(studentFile.name.endsWith('.csv')) { fd.append('csv_file', studentFile); } 
+      else if (studentFile.name.endsWith('.pdf')) { fd.append('pdf_file', studentFile); } 
+      else { showToast('Invalid file format', 'err'); return; }
+  }
+  if(txt) fd.append('syllabus_file',txt); 
+  showLoader('Running analysis on uploaded data…');
+  fetch('/',{method:'POST',body:fd})
+    .then(function(response){ return response.text(); })
+    .then(function(htmlString){ document.open(); document.write(htmlString); document.close(); })
+    .catch(function(err){ 
+        showToast('Upload Failed!', 'err'); 
+        hideLoader(); 
+    });
+};
+
+document.addEventListener('DOMContentLoaded',function(){
+  if(typeof INIT!=='undefined') render(INIT);
+});
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+UNIT-1: Introduction to Java
+History of Java, features of Java, getting started with Java [done]
+Java programs: Introduction of Application & Applets [done]
+Variables: Variable naming, initialization, Scope of variable [done]
+Operators: Arithmetic, Assignment, Unary, Comparison, Logical [done]
+Data types: Integers, Char, String, Float etc. Typecasting [done]
+
+UNIT-II: Classes and Objects
+Creating a class & subclass, Creating a new object [done]
+Data members and Methods [done]
+Access Specifier & Modifiers: Public, Private, Protected [done]
+Decision making & loops: If-then-else, Switch, While-loop, for
+Array: one-dimensional array, two-dimensional array
+String: String array, string methods
+Inheritance and Interfaces
+
+UNIT-III: Packages and Threads
+Packages: Java API packages, creating packages, accessing packages
+Import statement: Introduction & implementation
+Applets: Applets life cycle, designing a web page, executable applet
+Threads: Overview of threads, single & multiple threads, synchronization
+Exceptions & Errors: Types of error, exception handling techniques
+
+UNIT-IV: AWT and Graphics
+Event: Event driven programming, handling AWT events
+Graphic class: drawing & filling of lines, rectangle, circle & ellipse
+Streams: Abstract stream classes, file input & output
+Components & Control: Textfield, textarea class, label, button
+Layouts: Different types of Layout, Layout manager, Flow manager
