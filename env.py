@@ -8,8 +8,6 @@ from typing import Any, Dict, Optional, Tuple
 from models import Observation, Action, Reward, StudentData, SyllabusData, RiskData
 
 
-import random
-
 DUMMY_STUDENTS = [
     {
         "id": f"S{str(i).zfill(3)}",
@@ -120,7 +118,7 @@ class EduNexoraEnv:
         self.reset()
 
     # ------------------------------------------------------------------ #
-    #  reset()                                                             #
+    #  reset()                                                           #
     # ------------------------------------------------------------------ #
     def reset(self) -> Observation:
         self._step_count = 0
@@ -166,14 +164,14 @@ class EduNexoraEnv:
         return Observation(task=self.task, data=obs_payload)
 
     # ------------------------------------------------------------------ #
-    #  step(action)                                                        #
+    #  step(action)                                                      #
     # ------------------------------------------------------------------ #
     def step(self, action: Action) -> Tuple[Observation, Reward, bool, Dict]:
         if self._done:
             raise RuntimeError("Episode is done. Call reset() first.")
 
         self._step_count += 1
-        reward_value = 0.0
+        reward_value = 0.01 # Clamped from 0.0
         info: Dict[str, Any] = {}
 
         # ── TASK 1: Student Analysis ──────────────────────────────────── #
@@ -185,14 +183,14 @@ class EduNexoraEnv:
                 if student:
                     expected = _classify_student(student["marks"])
                     if predicted == expected:
-                        reward_value = 1.0
+                        reward_value = 0.99 # Clamped from 1.0
                         info["result"] = f"Correct: {sid} → {expected}"
                     else:
-                        reward_value = 0.0
+                        reward_value = 0.01 # Clamped from 0.0
                         info["result"] = f"Wrong: {sid} predicted {predicted}, expected {expected}"
                     self._state_data["classifications"][sid] = predicted
                 else:
-                    reward_value = 0.0
+                    reward_value = 0.01 # Clamped from 0.0
                     info["error"] = f"Student {sid} not found"
 
             elif action.name == "generate_ranking":
@@ -239,10 +237,10 @@ class EduNexoraEnv:
                         self._state_data["completed_steps"] += 1
                 progress = _compute_progress(self._state_data["syllabus"])
                 if found:
-                    reward_value = 1.0 if progress == 100.0 else round(progress / 100, 2)
+                    reward_value = 0.99 if progress == 100.0 else max(0.01, round(progress / 100, 2))
                     info["progress"] = progress
                 else:
-                    reward_value = 0.0
+                    reward_value = 0.01 # Clamped from 0.0
                     info["error"] = f"Topic {topic_id} not found"
 
             elif action.name == "generate_notification":
@@ -275,14 +273,14 @@ class EduNexoraEnv:
                 if student:
                     expected = _classify_risk(student["marks"])
                     if predicted == expected:
-                        reward_value = 1.0
+                        reward_value = 0.99 # Clamped from 1.0
                         info["result"] = f"Correct risk: {sid} → {expected}"
                     else:
-                        reward_value = 0.0
+                        reward_value = 0.01 # Clamped from 0.0
                         info["result"] = f"Wrong risk: {sid} predicted {predicted}, expected {expected}"
                     self._state_data["risk_levels"][sid] = predicted
                 else:
-                    reward_value = 0.0
+                    reward_value = 0.01 # Clamped from 0.0
                     info["error"] = f"Student {sid} not found"
 
             elif action.name == "assign_intervention":
@@ -295,7 +293,7 @@ class EduNexoraEnv:
                     reward_value = 0.5
                     info["intervention"] = assigned
                 else:
-                    reward_value = 0.0
+                    reward_value = 0.01 # Clamped from 0.0
                     info["error"] = f"Student {sid} not found"
 
             classified  = len(self._state_data["risk_levels"])
@@ -316,7 +314,7 @@ class EduNexoraEnv:
         return next_obs, reward, self._done, info
 
     # ------------------------------------------------------------------ #
-    #  state()                                                             #
+    #  state()                                                           #
     # ------------------------------------------------------------------ #
     def state(self) -> Dict[str, Any]:
         base = {
@@ -329,7 +327,7 @@ class EduNexoraEnv:
         return base
 
     # ------------------------------------------------------------------ #
-    #  helpers                                                             #
+    #  helpers                                                           #
     # ------------------------------------------------------------------ #
     @property
     def cumulative_reward(self) -> float:
