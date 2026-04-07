@@ -5,8 +5,10 @@ Mandatory Format: [START], [STEP], [END]
 
 import os
 import random
+import copy
 from openai import OpenAI
 
+# Ensure these are implemented correctly in your local 'env.py' and 'models.py'
 from env import (
     EduNexoraEnv,
     DUMMY_STUDENTS,
@@ -145,8 +147,6 @@ def run_task1_inference():
 
 # Task 2: Syllabus Tracking
 def run_task2_inference():
-    import copy
-
     task_name = "syllabus_tracking"
     env = EduNexoraEnv(task=task_name)
     env.reset()
@@ -258,4 +258,4 @@ if __name__ == "__main__":
     print("=" * 60)
     print("All tasks completed: SUCCESS")
     print("=" * 60)
-        
+    
