@@ -105,7 +105,7 @@ def run_task1(students: Optional[List[Dict]] = None) -> TaskResult:
 
     total_reward = round(sum(rewards), 4)
 
-    print("[STEP] step=1 action=process_all_students reward=1.0")
+    print("[STEP] step=1 action=process_all_students reward=0.99")
 
     print("\n📊 STUDENT ANALYSIS SUMMARY")
     print(details["summary"])
@@ -167,8 +167,8 @@ def run_task2(syllabus: Optional[Dict] = None) -> TaskResult:
         "progress_percent": progress
     }
 
-    # ✅ DYNAMIC REWARD
-    reward = round(completed_units / total_units, 2)
+    # ✅ DYNAMIC REWARD (Clamped between 0.01 and 0.99)
+    reward = round(min(0.99, max(0.01, completed_units / total_units)), 2)
     rewards = [reward]
     steps = total_units
 
@@ -223,11 +223,11 @@ def run_task3(students: Optional[List[Dict]] = None) -> TaskResult:
 
     total = sum(details.values())
 
-    # ✅ DYNAMIC REWARD
-    reward = round(
-        (details["low"] * 1.0 +
+    # ✅ DYNAMIC REWARD (Clamped between 0.01 and 0.99)
+    reward = round(min(0.99, max(0.01, 
+        (details["low"] * 0.99 +
          details["medium"] * 0.6 +
-         details["high"] * 0.3) / total,
+         details["high"] * 0.3) / total)),
         2
     )
 
