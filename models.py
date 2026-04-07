@@ -31,13 +31,13 @@ class Action(BaseModel):
 
 class Reward(BaseModel):
     """Represents the reward signal from the environment."""
-    value: float = Field(..., ge=0.0, le=1.0)
+   value: float = Field(..., gt=0.0, lt=1.0)
     task: str
     step: int
 
-    @validator("value")
-    def clamp_reward(cls, v: float) -> float:
-        return max(0.0, min(1.0, round(v, 4)))
+  @validator("value")
+def clamp_reward(cls, v: float) -> float:
+    return max(0.01, min(0.99, round(v, 4)))
 
 
 # ──────────────────────────────────────────────────────────────────────────── #
