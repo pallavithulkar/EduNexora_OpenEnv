@@ -36,7 +36,7 @@ class Reward(BaseModel):
     step: int
 
   @validator("value")
-def clamp_reward(cls, v: float) -> float:
+  def clamp_reward(cls, v: float) -> float:
     return max(0.01, min(0.99, round(v, 4)))
 
 
