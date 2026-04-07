@@ -101,11 +101,6 @@ def _assign_intervention(risk: str) -> str:
 
 
 class EduNexoraEnv:
-    """
-    OpenEnv-compliant RL environment for EduNexora AI.
-    Handles three distinct educational tasks.
-    """
-
     TASKS = ["student_analysis", "syllabus_tracking", "early_intervention"]
 
     def __init__(self, task: str = "student_analysis"):
@@ -117,9 +112,6 @@ class EduNexoraEnv:
         self._rewards: list  = []
         self.reset()
 
-    # ------------------------------------------------------------------ #
-    #  reset()                                                           #
-    # ------------------------------------------------------------------ #
     def reset(self) -> Observation:
         self._step_count = 0
         self._done       = False
@@ -163,18 +155,14 @@ class EduNexoraEnv:
 
         return Observation(task=self.task, data=obs_payload)
 
-    # ------------------------------------------------------------------ #
-    #  step(action)                                                      #
-    # ------------------------------------------------------------------ #
     def step(self, action: Action) -> Tuple[Observation, Reward, bool, Dict]:
         if self._done:
             raise RuntimeError("Episode is done. Call reset() first.")
 
         self._step_count += 1
-        reward_value = 0.01 # Clamped from 0.0
+        reward_value = 0.01 
         info: Dict[str, Any] = {}
 
-        # ── TASK 1: Student Analysis ──────────────────────────────────── #
         if self.task == "student_analysis":
             if action.name == "classify_student":
                 sid         = action.params.get("student_id")
@@ -183,14 +171,14 @@ class EduNexoraEnv:
                 if student:
                     expected = _classify_student(student["marks"])
                     if predicted == expected:
-                        reward_value = 0.99 # Clamped from 1.0
+                        reward_value = 0.99 
                         info["result"] = f"Correct: {sid} → {expected}"
                     else:
-                        reward_value = 0.01 # Clamped from 0.0
+                        reward_value = 0.01 
                         info["result"] = f"Wrong: {sid} predicted {predicted}, expected {expected}"
                     self._state_data["classifications"][sid] = predicted
                 else:
-                    reward_value = 0.01 # Clamped from 0.0
+                    reward_value = 0.01 
                     info["error"] = f"Student {sid} not found"
 
             elif action.name == "generate_ranking":
@@ -201,17 +189,14 @@ class EduNexoraEnv:
                 reward_value = 0.5
                 info["ranking"] = self._state_data["ranking"]
 
-            # Done only when ranking has also been generated
             if (action.name == "generate_ranking" and
                     len(self._state_data["classifications"]) >= len(self._state_data["students"])):
                 self._done = True
 
-        # ── TASK 2: Syllabus Tracking ─────────────────────────────────── #
         elif self.task == "syllabus_tracking":
             if action.name == "prioritize_unit":
                 unit_id      = action.params.get("unit_id")
                 syllabus     = self._state_data["syllabus"]
-                # Correct priority = unit with fewest completed topics (most lagging)
                 lag_scores   = {}
                 for uid, udata in syllabus.items():
                     topics   = udata["topics"]
@@ -237,10 +222,11 @@ class EduNexoraEnv:
                         self._state_data["completed_steps"] += 1
                 progress = _compute_progress(self._state_data["syllabus"])
                 if found:
-                    reward_value = 0.99 if progress == 100.0 else max(0.01, round(progress / 100, 2))
+                    # FIX: Rounding error jo 1.0 de raha tha, usko avoid karne ke liye direct strict clamp
+                    reward_value = round(max(0.01, min(0.99, progress / 100.0)), 4)
                     info["progress"] = progress
                 else:
-                    reward_value = 0.01 # Clamped from 0.0
+                    reward_value = 0.01 
                     info["error"] = f"Topic {topic_id} not found"
 
             elif action.name == "generate_notification":
@@ -264,7 +250,6 @@ class EduNexoraEnv:
             if (progress >= 100.0 and action.name == "generate_notification") or self._step_count >= 20:
                 self._done = True
 
-        # ── TASK 3: Early Intervention ────────────────────────────────── #
         elif self.task == "early_intervention":
             if action.name == "classify_risk":
                 sid       = action.params.get("student_id")
@@ -273,14 +258,14 @@ class EduNexoraEnv:
                 if student:
                     expected = _classify_risk(student["marks"])
                     if predicted == expected:
-                        reward_value = 0.99 # Clamped from 1.0
+                        reward_value = 0.99 
                         info["result"] = f"Correct risk: {sid} → {expected}"
                     else:
-                        reward_value = 0.01 # Clamped from 0.0
+                        reward_value = 0.01 
                         info["result"] = f"Wrong risk: {sid} predicted {predicted}, expected {expected}"
                     self._state_data["risk_levels"][sid] = predicted
                 else:
-                    reward_value = 0.01 # Clamped from 0.0
+                    reward_value = 0.01 
                     info["error"] = f"Student {sid} not found"
 
             elif action.name == "assign_intervention":
@@ -293,7 +278,7 @@ class EduNexoraEnv:
                     reward_value = 0.5
                     info["intervention"] = assigned
                 else:
-                    reward_value = 0.01 # Clamped from 0.0
+                    reward_value = 0.01 
                     info["error"] = f"Student {sid} not found"
 
             classified  = len(self._state_data["risk_levels"])
@@ -302,7 +287,6 @@ class EduNexoraEnv:
             if classified >= total and intervened >= total:
                 self._done = True
 
-        # ── Shared ────────────────────────────────────────────────────── #
         reward = Reward(
             value=round(reward_value, 4),
             task=self.task,
@@ -313,9 +297,6 @@ class EduNexoraEnv:
         next_obs = Observation(task=self.task, data=self.state())
         return next_obs, reward, self._done, info
 
-    # ------------------------------------------------------------------ #
-    #  state()                                                           #
-    # ------------------------------------------------------------------ #
     def state(self) -> Dict[str, Any]:
         base = {
             "task":       self.task,
@@ -326,12 +307,13 @@ class EduNexoraEnv:
         base.update(self._state_data)
         return base
 
-    # ------------------------------------------------------------------ #
-    #  helpers                                                           #
-    # ------------------------------------------------------------------ #
+    # FIX: Cumulative sum hoke 1.0 se upar jata tha, usko clamped average kar diya
     @property
     def cumulative_reward(self) -> float:
-        return round(sum(self._rewards), 4)
+        if not self._rewards:
+            return 0.01
+        avg = sum(self._rewards) / len(self._rewards)
+        return round(max(0.01, min(0.99, avg)), 4)
 
     @property
     def step_count(self) -> int:
@@ -339,3 +321,4 @@ class EduNexoraEnv:
 
     def is_done(self) -> bool:
         return self._done
+                
