@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 
 # ──────────────────────────────────────────────────────────────────────────── #
-#  Task 1 Graders                                                               #
+#  Task 1 Graders                                                              #
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def grade_classification(predicted: str, marks: float) -> float:
@@ -46,7 +46,7 @@ def grade_ranking(predicted_order: list, actual_marks: Dict[str, float]) -> floa
 
 
 # ──────────────────────────────────────────────────────────────────────────── #
-#  Task 2 Graders                                                               #
+#  Task 2 Graders                                                              #
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def grade_prioritization(selected_unit: str, lag_scores: Dict[str, int]) -> float:
@@ -91,7 +91,7 @@ def grade_notification(notifications: list) -> float:
 
 
 # ──────────────────────────────────────────────────────────────────────────── #
-#  Task 3 Graders                                                               #
+#  Task 3 Graders                                                              #
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def grade_risk_classification(predicted_risk: str, marks: float) -> float:
@@ -133,7 +133,7 @@ def grade_intervention(risk_level: str, intervention: str) -> float:
 
 
 # ──────────────────────────────────────────────────────────────────────────── #
-#  Aggregate Grader                                                             #
+#  Aggregate Grader                                                            #
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def compute_episode_score(rewards: list) -> Dict[str, Any]:
@@ -149,3 +149,4 @@ def compute_episode_score(rewards: list) -> Dict[str, Any]:
         "total": round(sum(rewards), 4),
         "count": len(rewards),
     }
+    
