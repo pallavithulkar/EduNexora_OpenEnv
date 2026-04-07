@@ -73,8 +73,7 @@ def run_task1(students: Optional[List[Dict]] = None) -> TaskResult:
     rewards.append(reward.value)
     steps += 1
 
-    # 🔥 THE ULTIMATE FIX: Seedha real data (source_students) ko sort karna hai!
-    # Ab koi purana dummy data nahi aayega, na hi 0 marks.
+    # Real data sorted by marks descending
     sorted_students = sorted(source_students, key=lambda s: s["marks"], reverse=True)
     ranking = [{"id": s["id"], "marks": s["marks"]} for s in sorted_students]
 
@@ -103,7 +102,8 @@ def run_task1(students: Optional[List[Dict]] = None) -> TaskResult:
         "backlog": backlog_count
     }
 
-    total_reward = round(sum(rewards), 4)
+    # ✅ FIXED: Use average reward (not sum) so total_reward stays strictly in (0, 1)
+    total_reward = round(min(0.99, max(0.01, sum(rewards) / len(rewards))), 4)
 
     print("[STEP] step=1 action=process_all_students reward=0.99")
 
@@ -167,8 +167,8 @@ def run_task2(syllabus: Optional[Dict] = None) -> TaskResult:
         "progress_percent": progress
     }
 
-    # ✅ DYNAMIC REWARD (Clamped between 0.01 and 0.99)
-    reward = round(min(0.99, max(0.01, completed_units / total_units)), 2)
+    # ✅ DYNAMIC REWARD (Clamped strictly between 0.01 and 0.99)
+    reward = round(min(0.99, max(0.01, completed_units / total_units)), 2) if total_units > 0 else 0.01
     rewards = [reward]
     steps = total_units
 
@@ -223,8 +223,8 @@ def run_task3(students: Optional[List[Dict]] = None) -> TaskResult:
 
     total = sum(details.values())
 
-    # ✅ DYNAMIC REWARD (Clamped between 0.01 and 0.99)
-    reward = round(min(0.99, max(0.01, 
+    # ✅ DYNAMIC REWARD (Clamped strictly between 0.01 and 0.99)
+    reward = round(min(0.99, max(0.01,
         (details["low"] * 0.99 +
          details["medium"] * 0.6 +
          details["high"] * 0.3) / total)),
