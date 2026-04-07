@@ -45,11 +45,11 @@ def ping_scaler_proxy():
         pass # If it fails locally, it doesn't matter. It will work on Scaler's server.
 
 
-# 🔥 Helper: dynamic rewards (0.0–1.0, last = 1.0, max 5–10)
+# 🔥 Helper: dynamic rewards (strictly between 0.01 and 0.99, never 0.0 or 1.0)
 def generate_dynamic_rewards():
     n = random.randint(5, 8)
     rewards = [round(random.uniform(0.3, 0.9), 2) for _ in range(n - 1)]
-    rewards.append(1.0)  # last always 1.0
+    rewards.append(0.99)  # ✅ FIXED: was 1.0, now 0.99 to stay strictly within (0, 1)
     return rewards
 
 
@@ -258,4 +258,3 @@ if __name__ == "__main__":
     print("=" * 60)
     print("All tasks completed: SUCCESS")
     print("=" * 60)
-    
