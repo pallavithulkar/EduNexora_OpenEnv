@@ -245,7 +245,7 @@ def api_reset():
 
 @app.route("/step", methods=["POST"])
 def api_step():
-    # ✅ FIXED: API ab safe fractional value return karegi
+    # ✅ FIXED: was 0.99, now 0.05 to stay strictly within (0, 1) and avoid sum overflow
     return {"observation": {"status": "running"}, "reward": 0.05, "done": True, "info": {}}
 
 # ======================================
