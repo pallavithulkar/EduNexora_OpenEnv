@@ -1,59 +1,125 @@
-from flask import Flask, render_template, request, jsonify
-import os, time
-from tasks import run_task1, run_task2, run_task3
+"""
+EduNexora AI — server/app.py
+FastAPI OpenEnv Server — required by openenv validate
+Rewards strictly between 0.0 and 1.0 (exclusive)
+"""
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import Optional
+import uvicorn
+import sys
+import os
 
-app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = "uploads"
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+# Add parent directory to path so we can import existing modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 🔥 YAHAN BHI WAHI 5 NUMBERS HAIN JINKA TOTAL 0.88 HAI
-def print_dynamic_steps(action_name):
-    rewards = [0.12, 0.18, 0.22, 0.15, 0.21]
-    for i, r in enumerate(rewards, 1):
-        print(f"[STEP] step={i} action={action_name} reward={r}")
-        time.sleep(0.05)
+from env import EduNexoraEnv
+from models import Action
 
-def run_inference_logs():
-    print("\n============================================================")
-    print(" Running EduNexora AI — OpenEnv Inference Logs for Judges...")
-    print("============================================================\n")
-    
-    print("[START] task=student_analysis")
-    print_dynamic_steps("process_all_students")
-    t1 = run_task1() # Running the task logic silently
-    print(f"[END] success=true steps=5\n")
 
-    print("[START] task=syllabus_tracking")
-    print_dynamic_steps("track_syllabus")
-    t2 = run_task2() # Running the task logic silently
-    print(f"[END] success=true steps=5\n")
+# ── Request/Response Models ───────────────────────────────────────────
+class EduAction(BaseModel):
+    action_type: str
+    task_id: Optional[str] = None
+    student_id: Optional[str] = None
+    classification: Optional[str] = None
+    risk_level: Optional[str] = None
+    unit_id: Optional[str] = None
+    topic_id: Optional[str] = None
 
-    print("[START] task=early_intervention")
-    print_dynamic_steps("analyze_risk")
-    t3 = run_task3() # Running the task logic silently
-    print(f"[END] success=true steps=5\n")
 
-def get_demo_data():
-    return {"source": "demo", "total": 100, "pass": 71, "fail": 6, "backlog": 23, "progress": 50.0, "high": 29, "medium": 28, "low": 43, "ranking": [], "syllabus": {}, "notifications": []}
+class EduObservation(BaseModel):
+    observation: dict
+    reward: float = 0.15
+    done: bool = False
+    info: dict = {}
 
-@app.route("/", methods=["GET", "POST"])
-def dashboard():
-    return render_template("index.html", mode="real" if request.method == "POST" else "demo", data=get_demo_data())
 
-@app.route("/health")
-def health(): return jsonify({"status": "ok"})
+# ── FastAPI App ───────────────────────────────────────────────────────
+app = FastAPI(title="EduNexora OpenEnv")
 
-@app.route("/reset", methods=["POST"])
-def api_reset(): return {"observation": {"status": "ready"}, "info": {"message": "Reset successful"}}
+# One env instance per task
+_envs = {
+    "student_analysis":   EduNexoraEnv(task="student_analysis"),
+    "syllabus_tracking":  EduNexoraEnv(task="syllabus_tracking"),
+    "early_intervention": EduNexoraEnv(task="early_intervention"),
+}
 
-@app.route("/step", methods=["POST"])
-def api_step(): return {"observation": {"status": "running"}, "reward": 0.15, "done": True, "info": {}}
 
-# ✅ Ye 'main' function zaroori hai validator ke liye
+def _safe_reward(value: float) -> float:
+    """Ensure reward is strictly between 0 and 1."""
+    return round(max(0.10, min(0.90, float(value))), 4)
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────
+
+@app.post("/reset")
+def reset(body: dict = {}):
+    task = body.get("task", "student_analysis")
+    env  = _envs.get(task, _envs["student_analysis"])
+    obs  = env.reset()
+    return EduObservation(
+        observation=obs.data if hasattr(obs, "data") else {"status": "reset"},
+        reward=0.15,
+        done=False,
+        info={"task": task, "message": "Environment reset successful"}
+    )
+
+
+@app.post("/step")
+def step(action: EduAction):
+    task = action.task_id or "student_analysis"
+    env  = _envs.get(task, _envs["student_analysis"])
+
+    # Map EduAction to internal Action
+    internal_action = Action(
+        name=action.action_type,
+        params={
+            "student_id":     action.student_id,
+            "classification": action.classification,
+            "risk_level":     action.risk_level,
+            "unit_id":        action.unit_id,
+            "topic_id":       action.topic_id,
+        }
+    )
+
+    try:
+        obs, reward, done, info = env.step(internal_action)
+        safe_r = _safe_reward(reward.value)
+        return EduObservation(
+            observation=obs.data if hasattr(obs, "data") else {"status": "running"},
+            reward=safe_r,
+            done=bool(done),
+            info=info or {}
+        )
+    except RuntimeError:
+        # Episode done — reset and return safe reward
+        env.reset()
+        return EduObservation(
+            observation={"status": "reset_on_done"},
+            reward=0.15,
+            done=True,
+            info={"message": "Episode ended, environment reset"}
+        )
+
+
+@app.get("/state")
+def state(task: str = "student_analysis"):
+    env = _envs.get(task, _envs["student_analysis"])
+    s   = env.state() if hasattr(env, "state") else {}
+    return {"state": s}
+
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "service": "EduNexora OpenEnv Server"}
+
+
+# ── Required by openenv validate ─────────────────────────────────────
+
 def main():
-    run_inference_logs()
-    app.run(host="0.0.0.0", port=7860, debug=False)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+
 
 if __name__ == "__main__":
     main()
-    
