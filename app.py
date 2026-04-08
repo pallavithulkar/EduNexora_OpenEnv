@@ -36,7 +36,14 @@ def run_inference_logs():
     print("[START] task=student_analysis")
     print_dynamic_steps("process_all_students")
     t1 = run_task1()
-    print(f"📊 STUDENT ANALYSIS SUMMARY: {t1.details['summary']}")
+    print(f"\n📊 STUDENT ANALYSIS SUMMARY: {t1.details['summary']}")
+    
+    # ✅ LAA DIYA WAPAS: Top 5 Ranking in Logs
+    print("\n🏆 TOP 5 STUDENTS")
+    for i, s in enumerate(t1.details.get("top_5", []), 1):
+        print(f"{i}. {s['id']} - {s['marks']}")
+    print()
+    
     print(f"[END] success=true steps={t1.total_steps}\n")
 
     # Task 2 Logs
@@ -245,7 +252,7 @@ def api_reset():
 
 @app.route("/step", methods=["POST"])
 def api_step():
-    # ✅ FIXED: was 0.99, now 0.05 to stay strictly within (0, 1) and avoid sum overflow
+    # ✅ FIXED: API ab safe fractional value return karegi
     return {"observation": {"status": "running"}, "reward": 0.05, "done": True, "info": {}}
 
 # ======================================
