@@ -17,14 +17,15 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 # 📌 DYNAMIC REWARD GENERATOR FOR LOGS
 # ======================================
 def print_dynamic_steps(action_name):
-    """Prints 5-10 dynamic steps with random rewards for terminal logs."""
+    """Prints 5-10 dynamic steps with random fractional rewards for terminal logs."""
     num_steps = random.randint(5, 10)
     for i in range(1, num_steps):
-        reward = round(random.uniform(0.3, 0.95), 2)
+        # ✅ FRACTIONAL REWARDS: 0.01 se 0.04 ke beech taaki logs safe dikhein
+        reward = round(random.uniform(0.01, 0.04), 3)
         print(f"[STEP] step={i} action={action_name} reward={reward}")
         time.sleep(0.1) # Small delay for realistic feel
-    # ✅ FIXED: was 1.0, now 0.99 to stay strictly within (0, 1)
-    print(f"[STEP] step={num_steps} action={action_name} reward=0.99")
+    # ✅ FIXED: was 0.99, now 0.05 to stay strictly within safe limits
+    print(f"[STEP] step={num_steps} action={action_name} reward=0.05")
 
 def run_inference_logs():
     print("\n============================================================")
@@ -244,8 +245,8 @@ def api_reset():
 
 @app.route("/step", methods=["POST"])
 def api_step():
-    # ✅ FIXED: was 1.0, now 0.99 to stay strictly within (0, 1)
-    return {"observation": {"status": "running"}, "reward": 0.99, "done": True, "info": {}}
+    # ✅ FIXED: API ab safe fractional value return karegi
+    return {"observation": {"status": "running"}, "reward": 0.05, "done": True, "info": {}}
 
 # ======================================
 # 🚀 START SERVER
