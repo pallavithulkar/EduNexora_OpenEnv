@@ -1,17 +1,20 @@
 """
 EduNexora AI — Graders
 Computes dynamic rewards for each task based on action correctness.
-All rewards are strictly in (0.0, 1.0) — i.e. clamped to [0.01, 0.99].
+Includes DIVERSE GRADING for RL as per workshop guidelines.
+Strictly bounded between [0.01, 0.99].
 """
 
 from typing import Any, Dict, Optional
-
 
 # ──────────────────────────────────────────────────────────────────────────── #
 #  Task 1 Graders                                                              #
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def grade_classification(predicted: str, marks: float) -> float:
+    """
+    Grades student classification with diverse partial rewards.
+    """
     if marks >= 40:
         expected = "pass"
     elif marks >= 35:
@@ -19,8 +22,18 @@ def grade_classification(predicted: str, marks: float) -> float:
     else:
         expected = "backlog"
 
-    return 0.99 if predicted == expected else 0.01
-
+    if predicted == expected:
+        return 0.95  # Sahi pe thoda diverse (not exact 0.99 everywhere)
+    
+    # Partial Reward Logic (Diversity ke liye)
+    if expected == "fail" and predicted == "backlog":
+        return 0.50  # Thoda close hai
+    elif expected == "backlog" and predicted == "fail":
+        return 0.40  # Thoda close hai
+    elif expected == "pass" and predicted == "fail":
+        return 0.20  
+        
+    return 0.05  # Ekdum galat
 
 def grade_ranking(predicted_order: list, actual_marks: Dict[str, float]) -> float:
     if not predicted_order:
@@ -31,7 +44,6 @@ def grade_ranking(predicted_order: list, actual_marks: Dict[str, float]) -> floa
     top_n   = min(3, len(sorted_ids))
     correct = sum(1 for i in range(top_n) if i < len(predicted_order) and predicted_order[i] == sorted_ids[i])
     return round(max(0.01, (correct / top_n) * 0.5), 4) 
-
 
 # ──────────────────────────────────────────────────────────────────────────── #
 #  Task 2 Graders                                                              #
@@ -49,10 +61,8 @@ def grade_prioritization(selected_unit: str, lag_scores: Dict[str, int]) -> floa
         return 0.01 
     return round(max(0.2, (selected_lag / best_lag) * 0.5), 4)
 
-
 def grade_topic_completion(progress_pct: float) -> float:
     return round(min(0.99, max(0.01, progress_pct / 100.0)), 4) 
-
 
 def grade_notification(notifications: list) -> float:
     if not notifications:
@@ -62,12 +72,14 @@ def grade_notification(notifications: list) -> float:
     score    = min(0.99, hits / max(len(notifications) * 2, 1)) 
     return round(max(0.3, score), 4)
 
-
 # ──────────────────────────────────────────────────────────────────────────── #
 #  Task 3 Graders                                                              #
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def grade_risk_classification(predicted_risk: str, marks: float) -> float:
+    """
+    Grades risk classification with diverse partial rewards.
+    """
     if marks < 40:
         expected = "high"
     elif marks <= 60:
@@ -75,8 +87,18 @@ def grade_risk_classification(predicted_risk: str, marks: float) -> float:
     else:
         expected = "low"
 
-    return 0.99 if predicted_risk == expected else 0.01 
-
+    if predicted_risk == expected:
+        return 0.96 
+        
+    # Diverse Partial Rewards
+    if expected == "high" and predicted_risk == "medium":
+        return 0.45 
+    elif expected == "low" and predicted_risk == "medium":
+        return 0.55 
+    elif expected == "medium" and predicted_risk in ["high", "low"]:
+        return 0.35 
+        
+    return 0.08
 
 def grade_intervention(risk_level: str, intervention: str) -> float:
     if not intervention:
@@ -94,9 +116,8 @@ def grade_intervention(risk_level: str, intervention: str) -> float:
         return 0.3
     return 0.1
 
-
 # ──────────────────────────────────────────────────────────────────────────── #
-#  Aggregate Grader (FIXED TOTAL SCORE BUG)                                    #
+#  Aggregate Grader                                                            #
 # ──────────────────────────────────────────────────────────────────────────── #
 
 def compute_episode_score(rewards: list) -> Dict[str, Any]:
@@ -108,7 +129,6 @@ def compute_episode_score(rewards: list) -> Dict[str, Any]:
         "mean":  round(max(0.01, min(0.99, avg)), 4),
         "max":   round(max(0.01, min(0.99, max(rewards))), 4),
         "min":   round(max(0.01, min(0.99, min(rewards))), 4),
-        # Total ko sum ki jagah clamped average diya hai, taaki 1.0 se upar na jaye
         "total": round(max(0.01, min(0.99, avg)), 4), 
         "count": len(rewards),
     }
