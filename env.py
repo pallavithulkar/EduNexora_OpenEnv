@@ -6,10 +6,39 @@ from graders import (grade_classification, grade_ranking, grade_prioritization,
                      grade_topic_completion, grade_notification, 
                      grade_risk_classification, grade_intervention, _clip)
 
-DUMMY_STUDENTS = [{"id": f"S{str(i).zfill(3)}", "marks": random.randint(20, 95)} for i in range(1, 101)]
-DUMMY_SYLLABUS = {"unit_1": {"topics": {"t1": {"completed": False}}}}
+# --- Yeh functions tasks.py ke liye zaroori hain ---
+def _classify_student(marks: float) -> str:
+    if marks >= 40: return "pass"
+    elif marks >= 35: return "fail"
+    else: return "backlog"
 
-def _compute_progress(syllabus: Dict) -> float: return 50.0
+def _classify_risk(marks: float) -> str:
+    if marks < 40: return "high"
+    elif marks <= 60: return "medium"
+    else: return "low"
+
+def _assign_intervention(risk: str) -> str:
+    mapping = {
+        "high": "Immediate counseling + remedial classes",
+        "medium": "Weekly mentoring sessions",
+        "low": "Regular monitoring",
+    }
+    return mapping.get(risk, "Standard support")
+
+def _compute_progress(syllabus: Dict) -> float:
+    if not syllabus: return 0.0
+    total = sum(len(u["topics"]) for u in syllabus.values())
+    done  = sum(1 for u in syllabus.values() for t in u["topics"].values() if t["completed"])
+    return round((done / total) * 100, 1) if total else 0.0
+
+# --- Dummy Data ---
+DUMMY_STUDENTS = [{"id": f"S{str(i).zfill(3)}", "marks": random.randint(20, 95)} for i in range(1, 101)]
+DUMMY_SYLLABUS = {
+    "unit_1": {
+        "name": "Fundamentals",
+        "topics": {"t1": {"name": "Topic 1", "completed": False}}
+    }
+}
 
 class EduNexoraEnv:
     TASKS = ["student_analysis", "syllabus_tracking", "early_intervention"]
@@ -31,7 +60,7 @@ class EduNexoraEnv:
 
     def step(self, action: Action) -> Tuple[Observation, Reward, bool, Dict]:
         self._step_count += 1
-        reward_value = 0.01 # Base
+        reward_value = 0.01 
         info: Dict[str, Any] = {}
 
         if self.task == "student_analysis":
@@ -74,10 +103,8 @@ class EduNexoraEnv:
             
             if self._step_count >= 100: self._done = True
 
-        # Wrap reward securely
         reward = Reward(value=_clip(reward_value), task=self.task, step=self._step_count)
         self._rewards.append(reward.value)
-        
         return Observation(task=self.task, data={"status": "running"}), reward, self._done, info
 
     def state(self) -> Dict[str, Any]:
