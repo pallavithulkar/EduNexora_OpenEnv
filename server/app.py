@@ -251,7 +251,10 @@ def api_step():
 # ======================================
 # 🚀 START SERVER
 # ======================================
-if __name__ == "__main__":
+def main():
     run_inference_logs()
     # Host must be 0.0.0.0 for Docker/HF Spaces
     app.run(host="0.0.0.0", port=7860, debug=True, use_reloader=False)
+
+if __name__ == "__main__":
+    main()
