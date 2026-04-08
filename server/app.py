@@ -179,7 +179,7 @@ def api_step():
     return {"observation": {"status": "running"}, "reward": 0.85, "done": True, "info": {}}
 
 # ======================================
-# 🚀 START
+# 🚀 START SERVER
 # ======================================
 def main():
     run_inference_logs()
