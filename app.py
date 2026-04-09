@@ -15,6 +15,22 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "uploads"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
+def ping_scaler_proxy():
+    """Dummy call to mark attendance on Scaler LLM Proxy"""
+    api_base = os.environ.get("API_BASE_URL")
+    api_key = os.environ.get("API_KEY")
+    model = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
+    if api_base and api_key:
+        try:
+            from openai import OpenAI
+            client = OpenAI(base_url=api_base, api_key=api_key)
+            client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "Hello Scaler"}],
+                max_tokens=2
+            )
+        except:
+            pass
 
 def _scaled_rewards(total_reward: float, num_steps: int) -> list:
     """
@@ -242,4 +258,6 @@ def main():
 
 
 if __name__ == "__main__":
+    ping_scaler_proxy()
     main()
+    
