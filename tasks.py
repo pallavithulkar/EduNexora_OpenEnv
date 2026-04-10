@@ -1,26 +1,28 @@
 """
-EduNexora AI — Task Runners
-All scores strictly between 0.0 and 1.0 (exclusive)
+EduNexora AI — tasks.py
+total_reward = AVERAGE of step rewards (always between 0.01 and 0.99)
+SUM of printed step rewards also < 1.0 (divided equally)
 """
 from typing import Any, Dict, List, Optional
 from env import (
     EduNexoraEnv, _classify_student, _classify_risk,
     _assign_intervention, _compute_progress,
-    DUMMY_STUDENTS, DUMMY_SYLLABUS
+    DUMMY_STUDENTS, DUMMY_SYLLABUS, _c
 )
 from models import Action, TaskResult
 
 
-def _safe_score(value: float) -> float:
-    """Ensure score is strictly between 0 and 1."""
-    return round(max(0.10, min(0.90, value)), 4)
+def _avg(rewards: list) -> float:
+    if not rewards:
+        return _c(0.50)
+    return _c(sum(rewards) / len(rewards))
 
 
+# ── Task 1 ────────────────────────────────────────────────────────────
 def run_task1(students: Optional[List[Dict]] = None) -> TaskResult:
     env = EduNexoraEnv(task="student_analysis")
-    source_students = students if students else DUMMY_STUDENTS
-    steps = 0
-    rewards = []
+    src = students if students else DUMMY_STUDENTS
+    steps, rewards = 0, []
 
     details: Dict[str, Any] = {
         "classifications": {},
@@ -30,133 +32,96 @@ def run_task1(students: Optional[List[Dict]] = None) -> TaskResult:
         "summary": {}
     }
 
-    for student in source_students:
-        sid = student["id"]
-        marks = student["marks"]
-        label = _classify_student(marks)
-
-        obs, reward, done, info = env.step(Action(
+    for s in src:
+        label = _classify_student(s["marks"])
+        _, rw, _, _ = env.step(Action(
             name="classify_student",
-            params={"student_id": sid, "classification": label}
+            params={"student_id": s["id"], "classification": label}
         ))
-        rewards.append(_safe_score(reward.value))
+        rewards.append(rw.value)
         steps += 1
-
-        details["classifications"][sid] = {
-            "name": student.get("name", sid),
-            "marks": marks,
+        details["classifications"][s["id"]] = {
+            "name": s.get("name", s["id"]),
+            "marks": s["marks"],
             "classification": label
         }
         if label == "backlog":
-            details["backlog_students"].append({
-                "id": sid,
-                "name": student.get("name", sid),
-                "marks": marks
-            })
+            details["backlog_students"].append({"id": s["id"], "name": s.get("name",""), "marks": s["marks"]})
 
-    obs, reward, done, info = env.step(Action(name="generate_ranking", params={}))
-    rewards.append(_safe_score(reward.value))
+    _, rw, _, info = env.step(Action(name="generate_ranking", params={}))
+    rewards.append(rw.value)
     steps += 1
 
-    sorted_students = sorted(source_students, key=lambda s: s["marks"], reverse=True)
-    ranking = [{"id": s["id"], "marks": s["marks"]} for s in sorted_students]
-    details["ranking"] = ranking
-    details["top_5"] = ranking[:5]
-
+    sorted_s = sorted(src, key=lambda s: s["marks"], reverse=True)
+    details["ranking"] = [{"id": s["id"], "marks": s["marks"]} for s in sorted_s]
+    details["top_5"]   = details["ranking"][:5]
     details["summary"] = {
-        "total_students": len(source_students),
-        "pass":    sum(1 for s in details["classifications"].values() if s["classification"] == "pass"),
-        "fail":    sum(1 for s in details["classifications"].values() if s["classification"] == "fail"),
+        "total_students": len(src),
+        "pass":    sum(1 for v in details["classifications"].values() if v["classification"] == "pass"),
+        "fail":    sum(1 for v in details["classifications"].values() if v["classification"] == "fail"),
         "backlog": len(details["backlog_students"])
     }
 
-    # Score = average reward, strictly between 0 and 1
-    avg_reward = sum(rewards) / len(rewards) if rewards else 0.50
-    total_reward = _safe_score(avg_reward)
-
     return TaskResult(
-        task="student_analysis",
-        success=True,
-        total_steps=steps,
-        total_reward=total_reward,
-        rewards=rewards,
-        details=details
+        task="student_analysis", success=True,
+        total_steps=steps, total_reward=_avg(rewards),
+        rewards=rewards, details=details
     )
 
 
+# ── Task 2 ────────────────────────────────────────────────────────────
 def run_task2(syllabus: Optional[Dict] = None) -> TaskResult:
     import copy
     env = EduNexoraEnv(task="syllabus_tracking")
-    source_syllabus = copy.deepcopy(syllabus) if syllabus else copy.deepcopy(DUMMY_SYLLABUS)
+    src = copy.deepcopy(syllabus) if syllabus else copy.deepcopy(DUMMY_SYLLABUS)
 
-    details: Dict[str, Any] = {
-        "unit_status": {},
-        "summary": {},
-        "notifications": []
-    }
+    details: Dict[str, Any] = {"unit_status": {}, "summary": {}, "notifications": []}
 
-    for uid, udata in source_syllabus.items():
-        total = len(udata["topics"])
-        done  = sum(1 for t in udata["topics"].values() if t.get("completed", False))
-        details["unit_status"][uid] = {
-            "progress": round((done / total) * 100, 2) if total else 0.0
-        }
+    for uid, ud in src.items():
+        total = len(ud["topics"])
+        done  = sum(1 for t in ud["topics"].values() if t.get("completed", False))
+        details["unit_status"][uid] = {"progress": round((done/total)*100, 2) if total else 0.0}
 
-    progress = _compute_progress(source_syllabus)
+    progress = _compute_progress(src)
     details["summary"]["progress_percent"] = progress
 
-    obs, reward, done, info = env.step(Action(name="generate_notification", params={}))
-    total_reward = _safe_score(reward.value)
+    _, rw, _, _ = env.step(Action(name="generate_notification", params={}))
 
     return TaskResult(
-        task="syllabus_tracking",
-        success=True,
-        total_steps=1,
-        total_reward=total_reward,
-        rewards=[total_reward],
-        details=details
+        task="syllabus_tracking", success=True,
+        total_steps=1, total_reward=_c(rw.value),
+        rewards=[_c(rw.value)], details=details
     )
 
 
+# ── Task 3 ────────────────────────────────────────────────────────────
 def run_task3(students: Optional[List[Dict]] = None) -> TaskResult:
     env = EduNexoraEnv(task="early_intervention")
-    source_students = students if students else DUMMY_STUDENTS
-    steps = 0
-    rewards = []
+    src = students if students else DUMMY_STUDENTS
+    steps, rewards = 0, []
 
     details = {"high": 0, "medium": 0, "low": 0}
 
-    for student in source_students:
-        risk = _classify_risk(student["marks"])
+    for s in src:
+        risk = _classify_risk(s["marks"])
         details[risk] += 1
-
-        obs, reward, done, info = env.step(Action(
+        _, rw, _, _ = env.step(Action(
             name="classify_risk",
-            params={"student_id": student["id"], "risk_level": risk}
+            params={"student_id": s["id"], "risk_level": risk}
         ))
-        rewards.append(_safe_score(reward.value))
+        rewards.append(rw.value)
         steps += 1
 
-    # Score = average reward, strictly between 0 and 1
-    avg_reward = sum(rewards) / len(rewards) if rewards else 0.50
-    total_reward = _safe_score(avg_reward)
-
     return TaskResult(
-        task="early_intervention",
-        success=True,
-        total_steps=steps,
-        total_reward=total_reward,
-        rewards=rewards,
-        details=details
+        task="early_intervention", success=True,
+        total_steps=steps, total_reward=_avg(rewards),
+        rewards=rewards, details=details
     )
 
 
-def run_all_tasks(
-    students: Optional[List[Dict]] = None,
-    syllabus: Optional[Dict] = None
-) -> Dict[str, TaskResult]:
+def run_all_tasks(students=None, syllabus=None):
     return {
         "task1": run_task1(students),
         "task2": run_task2(syllabus),
-        "task3": run_task3(students)
+        "task3": run_task3(students),
     }
